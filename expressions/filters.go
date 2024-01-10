@@ -65,7 +65,7 @@ func (ctx *context) ApplyFilter(name string, receiver valueFn, params []valueFn)
 		panic(UndefinedFilter(name))
 	}
 	fr := reflect.ValueOf(filter)
-	args := []interface{}{receiver(ctx).Interface()}
+	args := []interface{}{ctx.bindings, receiver(ctx).Interface()}
 	for i, param := range params {
 		if i+1 < fr.Type().NumIn() && isClosureInterfaceType(fr.Type().In(i+1)) {
 			expr, err := Parse(param(ctx).Interface().(string))
