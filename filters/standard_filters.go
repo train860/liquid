@@ -25,7 +25,7 @@ type FilterDictionary interface {
 // AddStandardFilters defines the standard Liquid filters.
 func AddStandardFilters(fd FilterDictionary) { // nolint: gocyclo
 	// value filters
-	fd.AddFilter("default", func(value, defaultValue interface{}) interface{} {
+	fd.AddFilter("default", func(bindings map[string]interface{}, value, defaultValue interface{}) interface{} {
 		if value == nil || value == false || values.IsEmpty(value) {
 			value = defaultValue
 		}
@@ -37,7 +37,7 @@ func AddStandardFilters(fd FilterDictionary) { // nolint: gocyclo
 	})
 
 	// array filters
-	fd.AddFilter("compact", func(a []interface{}) (result []interface{}) {
+	fd.AddFilter("compact", func(bindings map[string]interface{}, a []interface{}) (result []interface{}) {
 		for _, item := range a {
 			if item != nil {
 				result = append(result, item)
@@ -45,12 +45,12 @@ func AddStandardFilters(fd FilterDictionary) { // nolint: gocyclo
 		}
 		return
 	})
-	fd.AddFilter("concat", func(a, b []interface{}) (result []interface{}) {
+	fd.AddFilter("concat", func(bindings map[string]interface{}, a, b []interface{}) (result []interface{}) {
 		result = make([]interface{}, 0, len(a)+len(b))
 		return append(append(result, a...), b...)
 	})
 	fd.AddFilter("join", joinFilter)
-	fd.AddFilter("map", func(a []interface{}, key string) (result []interface{}) {
+	fd.AddFilter("map", func(bindings map[string]interface{}, a []interface{}, key string) (result []interface{}) {
 		keyValue := values.ValueOf(key)
 		for _, obj := range a {
 			value := values.ValueOf(obj)
@@ -62,13 +62,13 @@ func AddStandardFilters(fd FilterDictionary) { // nolint: gocyclo
 	fd.AddFilter("sort", sortFilter)
 	// https://shopify.github.io/liquid/ does not demonstrate first and last as filters,
 	// but https://help.shopify.com/themes/liquid/filters/array-filters does
-	fd.AddFilter("first", func(a []interface{}) interface{} {
+	fd.AddFilter("first", func(bindings map[string]interface{}, a []interface{}) interface{} {
 		if len(a) == 0 {
 			return nil
 		}
 		return a[0]
 	})
-	fd.AddFilter("last", func(a []interface{}) interface{} {
+	fd.AddFilter("last", func(bindings map[string]interface{}, a []interface{}) interface{} {
 		if len(a) == 0 {
 			return nil
 		}
@@ -77,30 +77,30 @@ func AddStandardFilters(fd FilterDictionary) { // nolint: gocyclo
 	fd.AddFilter("uniq", uniqFilter)
 
 	// date filters
-	fd.AddFilter("date", func(t time.Time, format func(string) string) (string, error) {
+	fd.AddFilter("date", func(bindings map[string]interface{}, t time.Time, format func(string) string) (string, error) {
 		f := format("%a, %b %d, %y")
 		return tuesday.Strftime(f, t)
 	})
 
 	// number filters
 	fd.AddFilter("abs", math.Abs)
-	fd.AddFilter("ceil", func(a float64) int {
+	fd.AddFilter("ceil", func(bindings map[string]interface{}, a float64) int {
 		return int(math.Ceil(a))
 	})
-	fd.AddFilter("floor", func(a float64) int {
+	fd.AddFilter("floor", func(bindings map[string]interface{}, a float64) int {
 		return int(math.Floor(a))
 	})
 	fd.AddFilter("modulo", math.Mod)
-	fd.AddFilter("minus", func(a, b float64) float64 {
+	fd.AddFilter("minus", func(bindings map[string]interface{}, a, b float64) float64 {
 		return a - b
 	})
-	fd.AddFilter("plus", func(a, b float64) float64 {
+	fd.AddFilter("plus", func(bindings map[string]interface{}, a, b float64) float64 {
 		return a + b
 	})
-	fd.AddFilter("times", func(a, b float64) float64 {
+	fd.AddFilter("times", func(bindings map[string]interface{}, a, b float64) float64 {
 		return a * b
 	})
-	fd.AddFilter("divided_by", func(a float64, b interface{}) interface{} {
+	fd.AddFilter("divided_by", func(bindings map[string]interface{}, a float64, b interface{}) interface{} {
 		switch q := b.(type) {
 		case int, int16, int32, int64:
 			return int(a) / q.(int)
@@ -110,7 +110,7 @@ func AddStandardFilters(fd FilterDictionary) { // nolint: gocyclo
 			return nil
 		}
 	})
-	fd.AddFilter("round", func(n float64, places func(int) int) float64 {
+	fd.AddFilter("round", func(bindings map[string]interface{}, n float64, places func(int) int) float64 {
 		pl := places(0)
 		exp := math.Pow10(pl)
 		return math.Floor(n*exp+0.5) / exp
@@ -120,42 +120,42 @@ func AddStandardFilters(fd FilterDictionary) { // nolint: gocyclo
 	fd.AddFilter("size", values.Length)
 
 	// string filters
-	fd.AddFilter("append", func(s, suffix string) string {
+	fd.AddFilter("append", func(bindings map[string]interface{}, s, suffix string) string {
 		return s + suffix
 	})
-	fd.AddFilter("capitalize", func(s, suffix string) string {
+	fd.AddFilter("capitalize", func(bindings map[string]interface{}, s, suffix string) string {
 		if len(s) == 0 {
 			return s
 		}
 		return strings.ToUpper(s[:1]) + s[1:]
 	})
-	fd.AddFilter("downcase", func(s, suffix string) string {
+	fd.AddFilter("downcase", func(bindings map[string]interface{}, s, suffix string) string {
 		return strings.ToLower(s)
 	})
 	fd.AddFilter("escape", html.EscapeString)
-	fd.AddFilter("escape_once", func(s, suffix string) string {
+	fd.AddFilter("escape_once", func(bindings map[string]interface{}, s, suffix string) string {
 		return html.EscapeString(html.UnescapeString(s))
 	})
-	fd.AddFilter("newline_to_br", func(s string) string {
+	fd.AddFilter("newline_to_br", func(bindings map[string]interface{}, s string) string {
 		return strings.Replace(s, "\n", "<br />", -1)
 	})
-	fd.AddFilter("prepend", func(s, prefix string) string {
+	fd.AddFilter("prepend", func(bindings map[string]interface{}, s, prefix string) string {
 		return prefix + s
 	})
-	fd.AddFilter("remove", func(s, old string) string {
+	fd.AddFilter("remove", func(bindings map[string]interface{}, s, old string) string {
 		return strings.Replace(s, old, "", -1)
 	})
-	fd.AddFilter("remove_first", func(s, old string) string {
+	fd.AddFilter("remove_first", func(bindings map[string]interface{}, s, old string) string {
 		return strings.Replace(s, old, "", 1)
 	})
-	fd.AddFilter("replace", func(s, old, new string) string {
+	fd.AddFilter("replace", func(bindings map[string]interface{}, s, old, new string) string {
 		return strings.Replace(s, old, new, -1)
 	})
-	fd.AddFilter("replace_first", func(s, old, new string) string {
+	fd.AddFilter("replace_first", func(bindings map[string]interface{}, s, old, new string) string {
 		return strings.Replace(s, old, new, 1)
 	})
 	fd.AddFilter("sort_natural", sortNaturalFilter)
-	fd.AddFilter("slice", func(s string, start int, length func(int) int) string {
+	fd.AddFilter("slice", func(bindings map[string]interface{}, s string, start int, length func(int) int) string {
 		ss := []rune(s)
 		n := length(1)
 		if start < 0 {
@@ -168,28 +168,28 @@ func AddStandardFilters(fd FilterDictionary) { // nolint: gocyclo
 		return string(ss[start:end])
 	})
 	fd.AddFilter("split", splitFilter)
-	fd.AddFilter("strip_html", func(s string) string {
+	fd.AddFilter("strip_html", func(bindings map[string]interface{}, s string) string {
 		// TODO this probably isn't sufficient
 		return regexp.MustCompile(`<.*?>`).ReplaceAllString(s, "")
 	})
-	fd.AddFilter("strip_newlines", func(s string) string {
+	fd.AddFilter("strip_newlines", func(bindings map[string]interface{}, s string) string {
 		return strings.Replace(s, "\n", "", -1)
 	})
 	fd.AddFilter("strip", strings.TrimSpace)
-	fd.AddFilter("lstrip", func(s string) string {
+	fd.AddFilter("lstrip", func(bindings map[string]interface{}, s string) string {
 		return strings.TrimLeftFunc(s, unicode.IsSpace)
 	})
-	fd.AddFilter("rstrip", func(s string) string {
+	fd.AddFilter("rstrip", func(bindings map[string]interface{}, s string) string {
 		return strings.TrimRightFunc(s, unicode.IsSpace)
 	})
-	fd.AddFilter("truncate", func(s string, length func(int) int, ellipsis func(string) string) string {
+	fd.AddFilter("truncate", func(bindings map[string]interface{}, s string, length func(int) int, ellipsis func(string) string) string {
 		n := length(50)
 		el := ellipsis("...")
 		// runes aren't bytes; don't use slice
 		re := regexp.MustCompile(fmt.Sprintf(`^(.{%d})..{%d,}`, n-len(el), len(el)))
 		return re.ReplaceAllString(s, `$1`+el)
 	})
-	fd.AddFilter("truncatewords", func(s string, length func(int) int, ellipsis func(string) string) string {
+	fd.AddFilter("truncatewords", func(bindings map[string]interface{}, s string, length func(int) int, ellipsis func(string) string) string {
 		el := ellipsis("...")
 		n := length(15)
 		re := regexp.MustCompile(fmt.Sprintf(`^(?:\s*\S+){%d}`, n))
@@ -199,7 +199,7 @@ func AddStandardFilters(fd FilterDictionary) { // nolint: gocyclo
 		}
 		return m + el
 	})
-	fd.AddFilter("upcase", func(s, suffix string) string {
+	fd.AddFilter("upcase", func(bindings map[string]interface{}, s, suffix string) string {
 		return strings.ToUpper(s)
 	})
 	fd.AddFilter("url_encode", url.QueryEscape)
@@ -207,7 +207,7 @@ func AddStandardFilters(fd FilterDictionary) { // nolint: gocyclo
 
 	// debugging filters
 	// inspect is from Jekyll
-	fd.AddFilter("inspect", func(value interface{}) string {
+	fd.AddFilter("inspect", func(bindings map[string]interface{}, value interface{}) string {
 		s, err := json.Marshal(value)
 		if err != nil {
 			return fmt.Sprintf("%#v", value)
@@ -219,7 +219,7 @@ func AddStandardFilters(fd FilterDictionary) { // nolint: gocyclo
 	})
 }
 
-func joinFilter(a []interface{}, sep func(string) string) interface{} {
+func joinFilter(bindings map[string]interface{}, a []interface{}, sep func(string) string) interface{} {
 	ss := make([]string, 0, len(a))
 	s := sep(" ")
 	for _, v := range a {
@@ -230,7 +230,7 @@ func joinFilter(a []interface{}, sep func(string) string) interface{} {
 	return strings.Join(ss, s)
 }
 
-func reverseFilter(a []interface{}) interface{} {
+func reverseFilter(bindings map[string]interface{}, a []interface{}) interface{} {
 	result := make([]interface{}, len(a))
 	for i, x := range a {
 		result[len(result)-1-i] = x
@@ -240,7 +240,7 @@ func reverseFilter(a []interface{}) interface{} {
 
 var wsre = regexp.MustCompile(`[[:space:]]+`)
 
-func splitFilter(s, sep string) interface{} {
+func splitFilter(bindings map[string]interface{}, s, sep string) interface{} {
 	result := strings.Split(s, sep)
 	if sep == " " {
 		// Special case for Ruby, therefore Liquid

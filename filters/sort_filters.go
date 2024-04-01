@@ -9,7 +9,7 @@ import (
 	"github.com/osteele/liquid/values"
 )
 
-func sortFilter(array []interface{}, key interface{}) []interface{} {
+func sortFilter(bindings map[string]interface{}, array []interface{}, key interface{}) []interface{} {
 	result := make([]interface{}, len(array))
 	copy(result, array)
 	if key == nil {
@@ -20,7 +20,7 @@ func sortFilter(array []interface{}, key interface{}) []interface{} {
 	return result
 }
 
-func sortNaturalFilter(array []interface{}, key interface{}) interface{} {
+func sortNaturalFilter(bindings map[string]interface{}, array []interface{}, key interface{}) interface{} {
 	result := make([]interface{}, len(array))
 	copy(result, array)
 	switch {
