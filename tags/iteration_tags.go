@@ -6,6 +6,7 @@ import (
 	"math"
 	"reflect"
 	"sort"
+	"strconv"
 
 	yaml "gopkg.in/yaml.v2"
 
@@ -213,8 +214,24 @@ func applyLoopModifiers(loop expressions.Loop, ctx render.Context, iter iterable
 		if err != nil {
 			return nil, err
 		}
-		limit, ok := val.(int)
-		if !ok {
+		var limit int
+		switch v := val.(type) {
+		case int, int8, int16, int32, int64:
+			str := fmt.Sprintf("%d", v)
+			num, err := strconv.Atoi(str)
+			if err != nil {
+				return nil, ctx.Errorf("loop limit must be an integer")
+			}
+			limit = num
+			break
+		case float32, float64:
+			str := fmt.Sprintf("%f", v)
+			num, err := strconv.ParseFloat(str, 64)
+			if err != nil {
+				return nil, ctx.Errorf("loop limit must be an integer")
+			}
+			limit = int(num)
+		default:
 			return nil, ctx.Errorf("loop limit must be an integer")
 		}
 		if limit >= 0 {
