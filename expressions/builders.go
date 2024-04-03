@@ -18,17 +18,32 @@ func makeContainsExpr(e1, e2 func(Context) values.Value) func(Context) values.Va
 	}
 }
 
-func makeFilter(fn valueFn, name string, args []valueFn) valueFn {
-	return func(ctx Context) values.Value {
-		result, err := ctx.ApplyFilter(name, fn, args)
-		if err != nil {
-			panic(FilterError{
-				FilterName: name,
-				Err:        err,
-			})
+/*
+	func makeFilter(fn valueFn, name string, args []valueFn) valueFn {
+		return func(ctx Context) values.Value {
+			result, err := ctx.ApplyFilter(name, fn, args)
+			if err != nil {
+				panic(FilterError{
+					FilterName: name,
+					Err:        err,
+				})
+			}
+			return values.ValueOf(result)
 		}
-		return values.ValueOf(result)
 	}
+*/
+func makeFilter(expr valueFn, name string, args []filterArg) valueFn {
+	return func(ctx Context) values.Value {
+		v, err := ctx.ApplyFilter(name, expr, args)
+		if err != nil {
+			panic(FilterError{name, err})
+		}
+		return values.ValueOf(v)
+	}
+}
+
+func makeNamedParamsFilter(fn valueFn, name string, args []valueFn) valueFn {
+	return nil
 }
 
 func makeIndexExpr(sequenceFn, indexFn func(Context) values.Value) func(Context) values.Value {

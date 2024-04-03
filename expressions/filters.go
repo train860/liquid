@@ -59,25 +59,57 @@ func isClosureInterfaceType(t reflect.Type) bool {
 	return closureType.ConvertibleTo(t) && !interfaceType.ConvertibleTo(t)
 }
 
-func (ctx *context) ApplyFilter(name string, receiver valueFn, params []valueFn) (interface{}, error) {
+/*
+	func (ctx *context) ApplyFilter(name string, receiver valueFn, params []valueFn) (interface{}, error) {
+		filter, ok := ctx.filters[name]
+		if !ok {
+			panic(UndefinedFilter(name))
+		}
+		fr := reflect.ValueOf(filter)
+		args := []interface{}{ctx.bindings, receiver(ctx).Interface()}
+		for i, param := range params {
+			if i+1 < fr.Type().NumIn() && isClosureInterfaceType(fr.Type().In(i+1)) {
+				expr, err := Parse(param(ctx).Interface().(string))
+				if err != nil {
+					panic(err)
+				}
+				args = append(args, closure{expr, ctx})
+			} else {
+				args = append(args, param(ctx).Interface())
+			}
+		}
+		out, err := values.Call(fr, args)
+		if err != nil {
+			if e, ok := err.(*values.CallParityError); ok {
+				err = &values.CallParityError{NumArgs: e.NumArgs - 1, NumParams: e.NumParams - 1}
+			}
+			return nil, err
+		}
+		switch out := out.(type) {
+		case []byte:
+			return string(out), nil
+		default:
+			return out, nil
+		}
+	}
+*/
+
+func (ctx *context) ApplyFilter(name string, receiver valueFn, args []filterArg) (interface{}, error) {
 	filter, ok := ctx.filters[name]
 	if !ok {
 		panic(UndefinedFilter(name))
 	}
 	fr := reflect.ValueOf(filter)
-	args := []interface{}{ctx.bindings, receiver(ctx).Interface()}
-	for i, param := range params {
-		if i+1 < fr.Type().NumIn() && isClosureInterfaceType(fr.Type().In(i+1)) {
-			expr, err := Parse(param(ctx).Interface().(string))
-			if err != nil {
-				panic(err)
-			}
-			args = append(args, closure{expr, ctx})
+	argv := []interface{}{ctx.bindings, receiver(ctx).Interface()}
+	kwargs := make(map[string]interface{})
+	for _, arg := range args {
+		if arg.key != "" {
+			kwargs[arg.key] = arg.expr(ctx).Interface()
 		} else {
-			args = append(args, param(ctx).Interface())
+			argv = append(argv, arg.expr(ctx).Interface())
 		}
 	}
-	out, err := values.Call(fr, args)
+	out, err := values.Call(fr, argv, kwargs)
 	if err != nil {
 		if e, ok := err.(*values.CallParityError); ok {
 			err = &values.CallParityError{NumArgs: e.NumArgs - 1, NumParams: e.NumParams - 1}

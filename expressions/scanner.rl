@@ -84,7 +84,7 @@ func (lex *lexer) Lex(out *yySymType) int {
 			"{%cycle " => { tok = CYCLE; fbreak; };
 			"%loop "   => { tok = LOOP; fbreak; };
 			"{%when "  => { tok = WHEN; fbreak; };
-
+			# "@" => { tok = COLON; fbreak; };
 			# literals
 			int => Int;
 			float => Float;
@@ -106,7 +106,7 @@ func (lex *lexer) Lex(out *yySymType) int {
 			# keywords
 			"in" => { tok = IN; fbreak; };
 			".." => { tok = DOTDOT; fbreak; };
-
+			
 			identifier ':' => { tok = KEYWORD; out.name = string(lex.data[lex.ts:lex.te-1]); fbreak; };
 			identifier => Identifier;
 			property => { tok = PROPERTY; out.name = string(lex.data[lex.ts+1:lex.te]); fbreak; };

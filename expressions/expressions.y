@@ -1,14 +1,19 @@
 %{
 package expressions
 import (
-	"fmt"
-	"github.com/osteele/liquid/values"
+    "fmt"
+    "github.com/osteele/liquid/values"
 )
 
 func init() {
-	// This allows adding and removing references to fmt in the rules below,
-	// without having to comment and un-comment the import statement above.
-	_ = ""
+    // This allows adding and removing references to fmt in the rules below,
+    // without having to comment and un-comment the import statement above.
+    _ = ""
+}
+
+type filterArg struct {
+    key  string
+    expr valueFn
 }
 
 %}
@@ -23,10 +28,11 @@ func init() {
    cyclefn  func(string) Cycle
    loop     Loop
    loopmods loopModifiers
-   filter_params []valueFn
+   filter_arg filterArg
+   filter_args []filterArg
 }
 %type<f> expr rel filtered cond
-%type<filter_params> filter_params
+%type<filter_args> filter_args
 %type<exprs> exprs expr2
 %type<cycle> cycle
 %type<cyclefn> cycle2
@@ -38,13 +44,14 @@ func init() {
 %token <name> IDENTIFIER KEYWORD PROPERTY
 %token ASSIGN CYCLE LOOP WHEN
 %token EQ NEQ GE LE IN AND OR CONTAINS DOTDOT
+
 %left '.' '|'
 %left '<' '>'
 %%
 start:
   cond ';' { yylex.(*lexer).val = $1 }
 | ASSIGN IDENTIFIER '=' filtered ';' {
-	yylex.(*lexer).Assignment = Assignment{$2, &expression{$4}}
+    yylex.(*lexer).Assignment = Assignment{$2, &expression{$4}}
 }
 | CYCLE cycle ';' { yylex.(*lexer).Cycle = $2 }
 | LOOP loop ';'   { yylex.(*lexer).Loop = $2 }
@@ -55,12 +62,12 @@ cycle: string cycle2 { $$ = $2($1) };
 
 cycle2:
   ':' string cycle3 {
-	h, t := $2, $3
-	$$ = func(g string) Cycle { return Cycle{g, append([]string{h}, t...)} }
+    h, t := $2, $3
+    $$ = func(g string) Cycle { return Cycle{g, append([]string{h}, t...)} }
   }
 | cycle3 {
-	vals := $1
-	$$ = func(h string) Cycle { return Cycle{Values: append([]string{h}, vals...)} }
+    vals := $1
+    $$ = func(h string) Cycle { return Cycle{Values: append([]string{h}, vals...)} }
   }
 ;
 
@@ -76,41 +83,42 @@ expr2:
 ;
 
 string: LITERAL {
-	s, ok := $1.(string)
-	if !ok {
-		panic(SyntaxError(fmt.Sprintf("expected a string for %q", $1)))
-	}
-	$$ = s
+    s, ok := $1.(string)
+    if !ok {
+        panic(SyntaxError(fmt.Sprintf("expected a string for %q", $1)))
+    }
+    $$ = s
 };
 
 loop: IDENTIFIER IN filtered loop_modifiers {
-	name, expr, mods := $1, $3, $4
-	$$ = Loop{name, &expression{expr}, mods}
+    name, expr, mods := $1, $3, $4
+    $$ = Loop{name, &expression{expr}, mods}
 }
 ;
 
 loop_modifiers: /* empty */ { $$ = loopModifiers{} }
 | loop_modifiers IDENTIFIER {
-	switch $2 {
-	case "reversed":
-		$1.Reversed = true
-	default:
-		panic(SyntaxError(fmt.Sprintf("undefined loop modifier %q", $2)))
-	}
-	$$ = $1
-}
-| loop_modifiers KEYWORD expr {
     switch $2 {
-	case "cols":
-		$1.Cols = &expression{$3}
-	case "limit":
-		$1.Limit = &expression{$3}
-	case "offset":
-		$1.Offset = &expression{$3}
-	default:
-		panic(SyntaxError(fmt.Sprintf("undefined loop modifier %q", $2)))
-	}
-	$$ = $1
+    case "reversed":
+        $1.Reversed = true
+    default:
+        panic(SyntaxError(fmt.Sprintf("undefined loop modifier %q", $2)))
+    }
+    $$ = $1
+}
+| loop_modifiers KEYWORD
+expr {
+    switch $2 {
+    case "cols":
+        $1.Cols = &expression{$3}
+    case "limit":
+        $1.Limit = &expression{$3}
+    case "offset":
+        $1.Offset = &expression{$3}
+    default:
+        panic(SyntaxError(fmt.Sprintf("undefined loop modifier %q", $2)))
+    }
+    $$ = $1
 }
 ;
 
@@ -126,57 +134,62 @@ expr:
 filtered:
   expr
 | filtered '|' IDENTIFIER { $$ = makeFilter($1, $3, nil) }
-| filtered '|' KEYWORD filter_params { $$ = makeFilter($1, $3, $4) }
+| filtered '|' KEYWORD filter_args { $$ = makeFilter($1, $3, $4) }
 ;
 
-filter_params:
-  expr { $$ = []valueFn{$1} }
-| filter_params ',' expr
-  { $$ = append($1, $3) }
+filter_args:
+  expr { $$ = []filterArg{{expr: $1}} }
+| filter_args ',' expr
+  { $$ = append($1, filterArg{expr: $3}) }
+| IDENTIFIER '=' expr
+  { $$ = []filterArg{{key: $1, expr: $3}} }
+| filter_args ',' IDENTIFIER '=' expr
+  { $$ = append($1, filterArg{key: $3, expr: $5}) }
+;
 
 rel:
   filtered
 | expr EQ expr {
-	fa, fb := $1, $3
-	$$ = func(ctx Context) values.Value {
-		a, b := fa(ctx), fb(ctx)
-		return values.ValueOf(a.Equal(b))
-	}
+    fa, fb := $1, $3
+    $$ = func(ctx Context) values.Value {
+        a, b := fa(ctx), fb(ctx)
+        return values.ValueOf(a.Equal(b))
+    }
 }
 | expr NEQ expr {
-	fa, fb := $1, $3
-	$$ = func(ctx Context) values.Value {
-		a, b := fa(ctx), fb(ctx)
-		return values.ValueOf(!a.Equal(b))
-	}
+    fa, fb := $1, $3
+    $$ = func(ctx Context) values.Value {
+        a, b := fa(ctx), fb(ctx)
+        return values.ValueOf(!a.Equal(b))
+    }
 }
 | expr '>' expr {
-	fa, fb := $1, $3
-	$$ = func(ctx Context) values.Value {
-		a, b := fa(ctx), fb(ctx)
-		return values.ValueOf(b.Less(a))
-	}
+    fa, fb := $1, $3
+    $$ = func(ctx Context) values.Value {
+        a, b := fa(ctx), fb(ctx)
+        return values.ValueOf(b.Less(a))
+    }
 }
 | expr '<' expr {
-	fa, fb := $1, $3
-	$$ = func(ctx Context) values.Value {
-		a, b := fa(ctx), fb(ctx)
-		return values.ValueOf(a.Less(b))
-	}
+    fa, fb := $1, $3
+    $$ = func(ctx Context) values.Value {
+        a, b := fa(ctx), fb(ctx)
+        return values.ValueOf(a.Less(b))
+    }
 }
 | expr GE expr {
-	fa, fb := $1, $3
-	$$ = func(ctx Context) values.Value {
-		a, b := fa(ctx), fb(ctx)
-		return values.ValueOf(b.Less(a) || a.Equal(b))
-	}
+    fa, fb := $1, $3
+    $$ = func(ctx Context) values.Value {
+        a, b := fa(ctx), fb(ctx)
+        return values.ValueOf(b.Less(a) || a.Equal(b))
+    }
 }
 | expr LE expr {
-	fa, fb := $1, $3
-	$$ = func(ctx Context) values.Value {
-		a, b := fa(ctx), fb(ctx)
-		return values.ValueOf(a.Less(b) || a.Equal(b))
-	}
+    fa, fb := $1, $3
+    $$ = func(ctx Context) values.Value {
+        a, b := fa(ctx), fb(ctx)
+        return values.ValueOf(a.Less(b) || a.Equal(b))
+    }
 }
 | expr CONTAINS expr { $$ = makeContainsExpr($1, $3) }
 ;
@@ -184,15 +197,15 @@ rel:
 cond:
   rel
 | cond AND rel {
-	fa, fb := $1, $3
-	$$ = func(ctx Context) values.Value {
-		return values.ValueOf(fa(ctx).Test() && fb(ctx).Test())
-	}
+    fa, fb := $1, $3
+    $$ = func(ctx Context) values.Value {
+        return values.ValueOf(fa(ctx).Test() && fb(ctx).Test())
+    }
 }
 | cond OR rel {
-	fa, fb := $1, $3
-	$$ = func(ctx Context) values.Value {
-		return values.ValueOf(fa(ctx).Test() || fb(ctx).Test())
-	}
+    fa, fb := $1, $3
+    $$ = func(ctx Context) values.Value {
+        return values.ValueOf(fa(ctx).Test() || fb(ctx).Test())
+    }
 }
 ;

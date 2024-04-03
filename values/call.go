@@ -12,6 +12,7 @@ import (
 //
 // The function should return one or two values; the second value,
 // if present, should be an error.
+/*
 func Call(fn reflect.Value, args []interface{}) (interface{}, error) {
 	in, err := convertCallArguments(fn, args)
 	if err != nil {
@@ -19,7 +20,19 @@ func Call(fn reflect.Value, args []interface{}) (interface{}, error) {
 	}
 	results := fn.Call(in)
 	return convertCallResults(results)
+}*/
+func Call(fn reflect.Value, args []interface{}, kwargs map[string]interface{}) (interface{}, error) {
+	if kwargs!=nil && len(kwargs)>0{
+		args=append(args,kwargs)
+	}
+	in, err := convertCallArguments(fn, args)
+	if err != nil {
+		return nil, err
+	}
+	results := fn.Call(in)
+	return convertCallResults(results)
 }
+
 
 // A CallParityError is a mismatch between the argument and parameter counts.
 type CallParityError struct{ NumArgs, NumParams int }
