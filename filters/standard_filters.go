@@ -13,8 +13,8 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/osteele/liquid/values"
 	"github.com/osteele/tuesday"
-	"github.com/train860/liquid/values"
 )
 
 // A FilterDictionary holds filters.
@@ -83,14 +83,18 @@ func AddStandardFilters(fd FilterDictionary) { // nolint: gocyclo
 	})
 
 	// number filters
-	fd.AddFilter("abs", math.Abs)
+	fd.AddFilter("abs", func(bindings map[string]interface{}, a float64) float64 {
+		return math.Abs(a)
+	})
 	fd.AddFilter("ceil", func(bindings map[string]interface{}, a float64) int {
 		return int(math.Ceil(a))
 	})
 	fd.AddFilter("floor", func(bindings map[string]interface{}, a float64) int {
 		return int(math.Floor(a))
 	})
-	fd.AddFilter("modulo", math.Mod)
+	fd.AddFilter("modulo", func(bindings map[string]interface{}, a, b float64) float64 {
+		return math.Mod(a, b)
+	})
 	fd.AddFilter("minus", func(bindings map[string]interface{}, a, b float64) float64 {
 		return a - b
 	})
@@ -117,7 +121,9 @@ func AddStandardFilters(fd FilterDictionary) { // nolint: gocyclo
 	})
 
 	// sequence filters
-	fd.AddFilter("size", values.Length)
+	fd.AddFilter("size", func(bindings map[string]interface{}, value interface{}) int {
+		return values.Length(value)
+	})
 
 	// string filters
 	fd.AddFilter("append", func(bindings map[string]interface{}, s, suffix string) string {
@@ -132,7 +138,9 @@ func AddStandardFilters(fd FilterDictionary) { // nolint: gocyclo
 	fd.AddFilter("downcase", func(bindings map[string]interface{}, s, suffix string) string {
 		return strings.ToLower(s)
 	})
-	fd.AddFilter("escape", html.EscapeString)
+	fd.AddFilter("escape", func(bindings map[string]interface{}, s, suffix string) string {
+		return html.EscapeString(s)
+	})
 	fd.AddFilter("escape_once", func(bindings map[string]interface{}, s, suffix string) string {
 		return html.EscapeString(html.UnescapeString(s))
 	})
@@ -175,7 +183,9 @@ func AddStandardFilters(fd FilterDictionary) { // nolint: gocyclo
 	fd.AddFilter("strip_newlines", func(bindings map[string]interface{}, s string) string {
 		return strings.Replace(s, "\n", "", -1)
 	})
-	fd.AddFilter("strip", strings.TrimSpace)
+	fd.AddFilter("strip", func(bindings map[string]interface{}, s string) string {
+		return strings.TrimSpace(s)
+	})
 	fd.AddFilter("lstrip", func(bindings map[string]interface{}, s string) string {
 		return strings.TrimLeftFunc(s, unicode.IsSpace)
 	})
@@ -202,8 +212,12 @@ func AddStandardFilters(fd FilterDictionary) { // nolint: gocyclo
 	fd.AddFilter("upcase", func(bindings map[string]interface{}, s, suffix string) string {
 		return strings.ToUpper(s)
 	})
-	fd.AddFilter("url_encode", url.QueryEscape)
-	fd.AddFilter("url_decode", url.QueryUnescape)
+	fd.AddFilter("url_encode", func(bindings map[string]interface{}, s string) string {
+		return url.QueryEscape(s)
+	})
+	fd.AddFilter("url_decode", func(bindings map[string]interface{}, s string) (string, error) {
+		return url.QueryUnescape(s)
+	})
 
 	// debugging filters
 	// inspect is from Jekyll
@@ -253,7 +267,7 @@ func splitFilter(bindings map[string]interface{}, s, sep string) interface{} {
 	return result
 }
 
-func uniqFilter(a []interface{}) (result []interface{}) {
+func uniqFilter(bindings map[string]interface{}, a []interface{}) (result []interface{}) {
 	seenMap := map[interface{}]bool{}
 	seen := func(item interface{}) bool {
 		if k := reflect.TypeOf(item).Kind(); k < reflect.Array || k == reflect.Ptr || k == reflect.UnsafePointer {
