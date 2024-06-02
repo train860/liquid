@@ -117,7 +117,9 @@ func AddStandardFilters(fd FilterDictionary) { // nolint: gocyclo
 	})
 
 	// sequence filters
-	fd.AddFilter("size", values.Length)
+	fd.AddFilter("size", func(bindings map[string]interface{}, value interface{}) int {
+		return values.Length(value)
+	})
 
 	// string filters
 	fd.AddFilter("append", func(bindings map[string]interface{}, s, suffix string) string {
